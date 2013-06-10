@@ -21,7 +21,10 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.couchbase.TestApplicationConfig;
 import org.springframework.data.couchbase.config.AbstractCouchbaseConfiguration;
 import org.springframework.data.couchbase.core.mapping.Document;
@@ -38,7 +41,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 public class AbstractCouchbaseConfigurationTest {
 
   @Autowired
-  private CouchbaseClient client;
+  private static CouchbaseClient client;
 
   @Test
   public void usesConfigClassPackageAsBaseMappingPackage() throws Exception {
@@ -50,12 +53,33 @@ public class AbstractCouchbaseConfigurationTest {
     assertTrue(config.getInitialEntitySet().contains(Entity.class));
   }
 
-  class SampleCouchbaseConfiguration extends AbstractCouchbaseConfiguration {
+  @Test
+  public void appliesSLF4JLoggingProperty() throws Exception {
+    ApplicationContext ctx =
+      new AnnotationConfigApplicationContext(SampleCouchbaseConfiguration.class);
+
+    String name = ctx.getBean("slf4jName", String.class);
+    assertNotNull(name);
+    assertEquals("net.spy.memcached.compat.log.SLF4JLogger", name);
+  }
+
+  @Configuration
+  static class SampleCouchbaseConfiguration extends AbstractCouchbaseConfiguration {
+
+    private String slf4jName = null;
+
     @Bean
     @Override
     public CouchbaseClient couchbaseClient() throws Exception {
+      slf4jName = System.getProperty("net.spy.log.LoggerImpl");
       return client;
     }
+
+    @Bean
+    public String slf4jName() throws Exception  {
+      return slf4jName;
+    }
+
   }
 
   @Document

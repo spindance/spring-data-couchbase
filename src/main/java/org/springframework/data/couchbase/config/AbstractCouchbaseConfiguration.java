@@ -74,6 +74,11 @@ public abstract class AbstractCouchbaseConfiguration {
     return mappingContext;
   }
 
+  @Bean
+  public CouchbaseClientPostProcessor couchbaseClientPostProcessor() throws Exception {
+    return new CouchbaseClientPostProcessor();
+  }
+
   /**
    * Scans the mapping base package for classes annotated with {@link Document}.
    */
