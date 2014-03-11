@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE chapter PUBLIC "-//OASIS//DTD DocBook XML V4.4//EN"
+        "http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd">
+<chapter id="couchbase.entity">
+    <title>Modeling Entities</title>
+
+    <abstract>
+        <para>This chapter describes how to model Entities and explains their counterpart representation in Couchbase
+            Server itself.</para>
+    </abstract>
+
+    <section id="basics">
+        <title>Documents and Fields</title>
+
+        <para>All entities should be annotated with the <code>@Document</code> annotation. Also, every field in the entity
+        should be annotated with the <code>@Field</code> annotation. While this is - strictly speaking - optional, it
+        helps to reduce edge cases and clearly shows the intent and design of the entity.</para>
+
+        <para>There is also a special <code>@Id</code> annotation which needs to be always in place. Best practice is
+        to also name the property <code>id</code>. Here is a very simple <code>User</code> entity:</para>
+
+        <example>
+            <title>A simple Document with Fields</title>
+            <programlisting lang="java"><![CDATA[
+import org.springframework.data.annotation.Id;
+import org.springframework.data.couchbase.core.mapping.Document;
+import org.springframework.data.couchbase.core.mapping.Field;
+
+@Document
+public class User {
+
+    @Id
+    private String id;
+
+    @Field
+    private String firstname;
+
+    @Field
+    private String lastname;
+
+    public User(String id, String firstname, String lastname) {
+        this.id = id;
+        this.firstname = firstname;
+        this.lastname = lastname;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getFirstname() {
+        return firstname;
+    }
+
+    public String getLastname() {
+        return lastname;
+    }
+}
+            ]]></programlisting>
+        </example>
+
+        <para>Couchbase Server supports automatic expiration for documents. The library implements support for it through
+        the <code>@Document</code> annotation. You can set a <code>expiry</code> value which translates to the number of
+        seconds until the document gets removed automatically. If you want to make it expire in 10 seconds after mutation,
+        set it like <code>@Document(expiry = 10)</code>.</para>
+
+        <para>If you want a different representation of the field name inside the document in contrast to the field
+        name used in your entity, you can set a different name on the <code>@Field</code> annotation. For example if
+        you want to keep your documents small you can set the firstname field to <code>@Field("fname")</code>. In the
+        JSON document, you'll see <code>{"fname": ".."}</code> instead of <code>{"firstname": ".."}</code>.</para>
+
+        <para>The <code>@Id</code> annotation needs to be present because every document in Couchbase needs a unique
+        key. This key needs to be any string with a length of maximum 250 characters. Feel free to use whatever fits
+        your use case, be it a UUID, an email address or anything else.</para>
+    </section>
+
+    <section id="datatypes">
+        <title>Datatypes and Converters</title>
+
+        <para>The storage format of choice is JSON. It is great, but like many data representations it allows less
+            datatypes than you could express in Java directly. Therefore, for all non-primitive types some form of
+            conversion to and from supported types needs to happen.</para>
+
+        <para>For the following entity field types, you don't need to add special handling:</para>
+
+        <table>
+            <title>Primitive Types</title>
+
+            <tgroup cols="2">
+                <tbody>
+                    <row>
+                        <entry>Foo</entry>
+                        <entry>Bar</entry>
+                    </row>
+                </tbody>
+            </tgroup>
+        </table>
+
+        <para>Since JSON supports objects ("maps") and lists, <code>Map</code> and <code>List</code> types can be converted
+            down pretty well. If they only contain field types from the last paragraph, you don't need to add special
+            handling too.</para>
+
+        <para>....explain dates, calendars and jodatime</para>
+
+        <para>...explain custom converter registration and how to use them.</para>
+    </section>
+
+    <section id="version">
+        <title>Optimistic Locking</title>
+
+        <para>Couchbase Server does not support multi-document transactions or rollback. To implement optimistic locking,
+            Couchbase uses a CAS (compare and swap) approach. When a document is mutated, the CAS value also changes. The
+            CAS is opaque to the client, the only thing you need to know is that it changes when the content or a meta
+            information changes too.</para>
+
+        <para>In other datastores, similar behavior can be achieved through an arbitrary version field whith a incrementing
+            counter. Since Couchbase supports this in a much better fashion, it is easy to implement. If you want automatic
+            optimistic locking support, all you need to do is add a <code>@Version</code> annotation on a long field like
+            this:</para>
+
+        <example>
+            <title>A Document with optimistic locking.</title>
+            <programlisting lang="java"><![CDATA[
+@Document
+public class User {
+
+        @Version
+        private long version;
+
+        // constructor, getters, setters...
+}
+            ]]></programlisting>
+        </example>
+
+        <para>If you load a document through the template or repository, the version field will be automatically populated
+            with the current CAS value. It is important to note that you shouldn't access the field or even change it
+            on your own. Once you save the document back, it will either succeed or fail with a
+            <code>OptimisticLockingFailureException</code>. If you get such an exception, the further approach depends
+            on what you want to achieve application wise. You should either retry the complete load-update-write cycle
+            or propagate the error to the upper layers for proper handling.</para>
+
+    </section>
+
+</chapter>
